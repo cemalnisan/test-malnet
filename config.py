@@ -20,7 +20,7 @@ args = {
 
     'seed': 1,
     'devices': [0],
-    'data_dir': os.getcwd() + '/data/',  # /teamspace/uploads/malnet-images-tiny01/test  symbolic link directory
+    'data_dir': '/teamspace/uploads/malnet-images-tiny01/',  # /teamspace/uploads/malnet-images-tiny01/test  symbolic link directory
     'image_dir': '/teamspace/uploads/malnet-images-tiny01',  # path where data is located
 
 }

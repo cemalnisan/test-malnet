@@ -158,7 +158,7 @@ def train_model(args, train_gen, val_gen):
         steps_per_epoch=int(train_gen.samples / args['batch_size']),
         epochs=args['epochs'],
         class_weight=class_weights,
-        callbacks=[Metrics(args, val_gen)],
+        callbacks=[],
         workers=multiprocessing.cpu_count(),
     )
 
@@ -171,7 +171,7 @@ def train_model(args, train_gen, val_gen):
 
 def get_generators(args):
     train_gen = ImageDataGenerator(rescale=1. / 255).flow_from_directory(
-        directory='{}malnet_tiny={}/{}/train'.format(args['data_dir'], args['malnet_tiny'], args['group']),
+        directory=os.path.join("data", "train"),
         class_mode='categorical',
         color_mode=args['color_mode'],
         batch_size=args['batch_size'],
@@ -179,17 +179,8 @@ def get_generators(args):
         shuffle=True
     )
 
-    val_gen = ImageDataGenerator(rescale=1. / 255).flow_from_directory(
-        directory='{}malnet_tiny={}/{}/val'.format(args['data_dir'], args['malnet_tiny'], args['group']),
-        class_mode='categorical',
-        color_mode=args['color_mode'],
-        batch_size=args['batch_size'],
-        seed=args['seed'],
-        shuffle=False
-    )
-
     test_gen = ImageDataGenerator(rescale=1. / 255).flow_from_directory(
-        directory='{}malnet_tiny={}/{}/test'.format(args['data_dir'], args['malnet_tiny'], args['group']),
+        directory=os.path.join("data", "test"),
         class_mode='categorical',
         color_mode=args['color_mode'],
         batch_size=args['batch_size'],
@@ -197,7 +188,7 @@ def get_generators(args):
         shuffle=False
     )
 
-    return train_gen, val_gen, test_gen
+    return train_gen, None, test_gen
 
 
 def run(args_og, group, device):
@@ -208,6 +199,9 @@ def run(args_og, group, device):
 
     create_image_symlinks(args)
     train_gen, val_gen, test_gen = get_generators(args)
+
+    if val_gen is None:
+        val_gen = train_gen  # fallback for callbacks expecting val_gen
 
     args['y_train'] = train_gen.labels
     args['class_indexes'] = list(val_gen.class_indices.values())

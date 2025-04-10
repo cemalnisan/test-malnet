@@ -1,4 +1,6 @@
+import glob
 import os
+import shutil
 
 
 def filter_types(args, lines):
@@ -86,6 +88,32 @@ def get_split_info(args):
 def create_image_symlinks(args):
     print('Creating image symlinks')
 
+    for split in ['train', 'test']:
+        src_base = os.path.join(args['data_dir'], split)
+        dst_base = os.path.join('data', split)
+
+        if os.path.exists(dst_base):
+            shutil.rmtree(dst_base)
+        os.makedirs(dst_base)
+
+        for class_name in os.listdir(src_base):
+            class_path = os.path.join(src_base, class_name)
+            if not os.path.isdir(class_path):
+                continue
+
+            dst_class_path = os.path.join(dst_base, class_name)
+            os.makedirs(dst_class_path, exist_ok=True)
+
+            for img_path in glob.glob(os.path.join(class_path, '*.*')):
+                if img_path.endswith(('.png', '.jpg', '.jpeg')):
+                    dst = os.path.join(dst_class_path, os.path.basename(img_path))
+                    os.symlink(os.path.abspath(img_path), dst)
+
+    print('Finished creating symlinks')
+
+'''def create_image_symlinks(args):
+    print('Creating image symlinks')
+
     files_train, files_val, files_test, _, _, _, _ = get_split_info(args)
 
     # create symlinks for train/val/test folders
@@ -157,4 +185,6 @@ def create_image_symlinks(args):
         os.symlink(src_path, dst_path)
 
 
-    print('Finished creating symlinks')
+    print('Finished creating symlinks')'''
+
+
