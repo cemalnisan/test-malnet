@@ -8,9 +8,18 @@ def filter_types(args, lines):
     files = [args['image_dir'] + file.strip() + '.png' for file in lines]
 
     for file in files:
-        mtype = file.split('malnet-images/')[1].rsplit('/', 2)[0]
+        mtype = file.split('/')[-2]
         if mtype not in types_to_exclude:
             filtered_files.append(file)
+
+    '''for file in files:
+        # Update for new dataset structure
+        try:
+            mtype = file.split('malnet-images-tiny01/')[1].split('/')[0]
+            if mtype not in types_to_exclude:
+                filtered_files.append(file)
+        except IndexError:
+            print(f"Skipping file due to unexpected format: {file}")'''
 
     return filtered_files
 
@@ -19,8 +28,15 @@ def get_split_info(args):
     with open(os.getcwd() + '/split_info/{}/train.txt'.format(args['group']), 'r') as f:
         lines_train = f.readlines()
 
-    with open(os.getcwd() + '/split_info/{}/val.txt'.format(args['group']), 'r') as f:
-        lines_val = f.readlines()
+    # Check if val.txt exists, if not, create an empty list
+    # to avoid errors when trying to read it
+    val_path = os.getcwd() + '/split_info/{}/val.txt'.format(args['group'])
+    if os.path.exists(val_path):
+        with open(val_path, 'r') as f:
+            lines_val = f.readlines()
+    else:
+        print("Validation dataset (val.txt) not found. Proceeding without validation data.")
+        lines_val = []
 
     with open(os.getcwd() + '/split_info/{}/test.txt'.format(args['group']), 'r') as f:
         lines_test = f.readlines()
@@ -35,28 +51,28 @@ def get_split_info(args):
         files_test = [args['image_dir'] + file.strip() + '.png' for file in lines_test]
 
     if args['group'] == 'type':
-        labels = sorted(list(set([file.split('malnet-images/')[1].rsplit('/', 2)[0] for file in files_train])))
+        labels = sorted(list(set([file.split('/')[-2] for file in files_train])))
         label_dict = {t: idx for idx, t in enumerate(labels)}
 
-        train_labels = [label_dict[file.split('malnet-images/')[1].rsplit('/', 2)[0]] for file in files_train]
-        val_labels = [label_dict[file.split('malnet-images/')[1].rsplit('/', 2)[0]] for file in files_val]
-        test_labels = [label_dict[file.split('malnet-images/')[1].rsplit('/', 2)[0]] for file in files_test]
+        train_labels = [label_dict[file.split('/')[-2]] for file in files_train]
+        val_labels = [label_dict[file.split('/')[-2]] for file in files_val]
+        test_labels = [label_dict[file.split('/')[-2]] for file in files_test]
 
     elif args['group'] == 'family':
-        labels = sorted(list(set([file.split('malnet-images/')[1].rsplit('/', 2)[1] for file in files_train])))
+        labels = sorted(list(set([file.split('/')[-2] for file in files_train])))
         label_dict = {t: idx for idx, t in enumerate(labels)}
 
-        train_labels = [label_dict[file.split('malnet-images/')[1].rsplit('/', 2)[1]] for file in files_train]
-        val_labels = [label_dict[file.split('malnet-images/')[1].rsplit('/', 2)[1]] for file in files_val]
-        test_labels = [label_dict[file.split('malnet-images/')[1].rsplit('/', 2)[1]] for file in files_test]
+        train_labels = [label_dict[file.split('/')[-2]] for file in files_train]
+        val_labels = [label_dict[file.split('/')[-2]] for file in files_val]
+        test_labels = [label_dict[file.split('/')[-2]] for file in files_test]
 
     elif args['group'] == 'binary':
         labels = ['benign', 'malicious']
         label_dict = {t: idx for idx, t in enumerate(labels)}
 
-        train_labels = [0 if 'benign' in file.split('malnet-images/')[1].rsplit('/', 2)[0] else 1 for file in files_train]
-        val_labels = [0 if 'benign' in file.split('malnet-images/')[1].rsplit('/', 2)[0] else 1 for file in files_val]
-        test_labels = [0 if 'benign' in file.split('malnet-images/')[1].rsplit('/', 2)[0] else 1 for file in files_test]
+        train_labels = [0 if 'benign' in file.split('malnet-images-tiny01/')[1].rsplit('/')[-2] else 1 for file in files_train]
+        val_labels = [0 if 'benign' in file.split('malnet-images-tiny01/')[1].rsplit('/')[-2] else 1 for file in files_val]
+        test_labels = [0 if 'benign' in file.split('malnet-images-tiny01/')[1].rsplit('/')[-2] else 1 for file in files_test]
 
     else:
         print('Group does not exist')
@@ -87,10 +103,16 @@ def create_image_symlinks(args):
         elif args['group'] == 'family':
             dst_path = dst_path.split('train/')[0] + 'train/' + '/'.join(dst_path.split('train/')[1].split('/')[1:3])
 
-        if not os.path.exists(dst_path):
-            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-            os.symlink(src_path, dst_path)
+        # 1. If the destination directory does not exist, create it
+        if not os.path.exists(os.path.dirname(dst_path)):
+            os.makedirs(os.path.dirname(dst_path))
+        # 2. delete the symlink if it exists
+        if os.path.lexists(dst_path):
+            os.remove(dst_path)
+        # 3. Create symlink
+        os.symlink(src_path, dst_path)
 
+    
     for src_path in files_val:
         dst_path = src_path.replace(args['image_dir'], dst_dir + 'val/')
 
@@ -103,9 +125,15 @@ def create_image_symlinks(args):
         elif args['group'] == 'family':
             dst_path = dst_path.split('val/')[0] + 'val/' + '/'.join(dst_path.split('val/')[1].split('/')[1:3])
 
-        if not os.path.exists(dst_path):
-            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-            os.symlink(src_path, dst_path)
+        # 1. If the destination directory does not exist, create it
+        if not os.path.exists(os.path.dirname(dst_path)):
+            os.makedirs(os.path.dirname(dst_path))
+        # 2. delete the symlink if it exists
+        if os.path.lexists(dst_path):
+            os.remove(dst_path)
+        # 3. Create symlink
+        os.symlink(src_path, dst_path)
+
 
     for src_path in files_test:
         dst_path = src_path.replace(args['image_dir'], dst_dir + 'test/')
@@ -119,8 +147,14 @@ def create_image_symlinks(args):
         elif args['group'] == 'family':
             dst_path = dst_path.split('test/')[0] + 'test/' + '/'.join(dst_path.split('test/')[1].split('/')[1:3])
 
-        if not os.path.exists(dst_path):
-            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-            os.symlink(src_path, dst_path)
+        # 1. If the destination directory does not exist, create it
+        if not os.path.exists(os.path.dirname(dst_path)):
+            os.makedirs(os.path.dirname(dst_path))
+        # 2. delete the symlink if it exists
+        if os.path.lexists(dst_path):
+            os.remove(dst_path)
+        # 3. Create symlink
+        os.symlink(src_path, dst_path)
+
 
     print('Finished creating symlinks')
